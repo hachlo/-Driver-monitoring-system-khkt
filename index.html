@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="https://i.ibb.co/cmP1Wx5/z7398913576575-213cf8d9f8e73a51fc98cbf1bc66af41-Photoroom.png">
     <title>🚗 Hệ thống cảnh báo tài xế - Trường THPT Hùng Vương</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
@@ -570,7 +571,7 @@
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
             } catch (e) {
-                showError('Không thể khởi tạo audio. Trình duyệt không hỗ trợ.');
+                showError('Không thể khởi tạo âm thanh. Trình duyệt không hỗ trợ.');
             }
         }
 
@@ -755,8 +756,8 @@
                 faceMesh.setOptions({
                     maxNumFaces: 1,
                     refineLandmarks: true,
-                    minDetectionConfidence: 0.5,
-                    minTrackingConfidence: 0.5
+                    minDetectionConfidence: 0.3,
+                    minTrackingConfidence: 0.3
                 });
 
                 faceMesh.onResults(onFaceResults);
@@ -838,19 +839,50 @@
             }
         }
 
-        // Dừng giám sát
+         //Dừng giám sát
         function stopMonitoring() {
             isRunning = false;
             document.getElementById('startBtn').disabled = false;
             document.getElementById('stopBtn').disabled = true;
             
-            // Reset các cảnh báo
+            //Tắt camera
+            if (camera) {
+                camera.stop();
+                camera = null;
+            }
+            
+            //Dừng video stream
+            const video = document.getElementById('video');
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            
+            //Xóa canvas
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            //Reset các biến
+            earCounter = 0;
+            handOffCounter = 0;
+            isDrowsyAlerting = false;
+            isHandAlerting = false;
+            faceResults = null;
+            handsResults = null;
+            
+            //Reset các cảnh báo
             document.getElementById('alertDrowsy').style.display = 'none';
             document.getElementById('alertHands').style.display = 'none';
             document.getElementById('statusText').textContent = 'Đã dừng';
+            document.getElementById('earValue').textContent = '0.00';
+            document.getElementById('fpsValue').textContent = '0';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading').innerHTML = '<div>📸 Hãy cho phép sử dụng camera để bắt đầu giám sát</div>';
         }
 
-        // Event listeners
+        //Event listeners
         document.getElementById('startBtn').addEventListener('click', startMonitoring);
         document.getElementById('stopBtn').addEventListener('click', stopMonitoring);
 
@@ -862,7 +894,7 @@
 
         // Khởi tạo khi trang load
         window.addEventListener('load', () => {
-            console.log('🚗 Driver Alert System v2.0');
+            console.log('🚗 Hệ thống cảnh báo tài xế ');
         });
     </script>
 </body>
