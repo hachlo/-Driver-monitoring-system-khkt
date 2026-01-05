@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống cảnh báo tài xế</title>
+    <title>🚗 Hệ thống cảnh báo tài xế - Trường THPT Hùng Vương</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
@@ -444,7 +444,7 @@
                     <canvas id="canvas"></canvas>
                     
                     <div id="loading" class="loading">
-                        <div>🔄 Đang khởi tạo camera...</div>
+                        <div>📸 Hãy cho phép sử dụng camera để bắt đầu giám sát</div>
                     </div>
                     
                     <div id="alertDrowsy" class="alert-drowsy">
@@ -806,7 +806,7 @@
                 await camera.start();
                 document.getElementById('loading').style.display = 'none';
             } catch (e) {
-                showError('Lỗi khởi động camera: ' + e.message);
+                showError('Lỗi khởi động hoặc từ chối cấp quyền sử dụng camera: ' + e.message);
                 document.getElementById('loading').style.display = 'none';
                 throw e;
             }
