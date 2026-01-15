@@ -521,9 +521,22 @@
             document.getElementById('stopBtn').disabled = true;
             document.getElementById('loading').style.display = 'none';
 
+            document.getElementById('drowsyFramesCount').textContent = '0';
+            document.getElementById('yawnCount').textContent = '0';
+            document.getElementById('handOffFramesCount').textContent = '0';
+            document.getElementById('totalAlerts').textContent = '0';
+            els.status.textContent = "Sẵn sàng";
+            els.dot.style.background = "#10b981";
+
+            els.soundDrowsy.pause();
+            els.soundDrowsy.currentTime = 0;
+            els.soundHand.pause();
+            els.soundHand.currentTime = 0;
+            
             dangerStartTime = null;
             isSOSActive = false;
             stopSOS();
+            
             document.getElementById('alertSOS').style.display = 'none';
             document.getElementById('sosTimerDisplay').style.display = 'none';
             els.alertDrowsy.style.display = 'none';
