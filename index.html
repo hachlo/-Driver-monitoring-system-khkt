@@ -94,7 +94,7 @@
         <div class="header">
             <div class="header-content">
                 <h1>🚗 Hệ thống giám sát tài xế</h1>
-                <p>Phát hiện Ngủ gật, Ngáp &  rời vô lăng + SOS Khẩn cấp</p>
+                <p>Phát hiện Ngủ gật, Ngáp & Tay rời vô lăng + SOS Khẩn cấp</p>
             </div>
         </div>
 
@@ -147,7 +147,7 @@
                 </div>
 
                 <div class="settings-panel">
-                    <div class="settings-title">SOS (Tạm thời chưa hoạt động)</div>
+                    <div class="settings-title">SOS</div>
                     
                     <div class="setting-item">
                         <div class="setting-label"><span>SĐT Người thân (Nhận SOS)</span></div>
@@ -172,12 +172,13 @@
                             <span>Ngưỡng miệng (MAR)</span>
                             <input type="number" id="marThreshold" value="0.5" step="0.05">
                         </div>
-                    </div>
+                    </div>    
                     <div class="setting-item">
                         <div class="setting-label">
                             <span>Mắt nhắm (Frames)</span>
                             <input type="number" id="drowsyFrames" value="20" step="5" min="5" max="60">
                         </div>
+                    </div>    
                     </div>
                     <div class="setting-item">
                         <div class="setting-label"><span>Âm lượng</span> <span id="volumeValue">100%</span></div>
@@ -203,13 +204,16 @@
             DROWSY_FRAMES: 20,
             YAWN_FRAMES: 20,
             HAND_OFF_FRAMES: 30, 
-            SOS_TIMEOUT_MS: 180000,   
+            SOS_TIMEOUT_MS: 180000,
+            WARMUP_SECONDS: 5,
             VOLUME: 1.0
         };
 
         let faceMesh, hands, camera;
         let isRunning = false;
         
+        let systemStartTime = 0; 
+
         let earCounter = 0;
         let marCounter = 0;
         let handOffCounter = 0;
@@ -268,7 +272,6 @@
                         let val = parseInt(e.target.value);
                         if(val < 5) val = 5; 
                         CONFIG.HAND_OFF_FRAMES = val;
-                        console.log("Đã cập nhật Hand Frames:", CONFIG.HAND_OFF_FRAMES);
                     });
                 }, 500);
             }
@@ -349,6 +352,19 @@
             els.soundSOS.currentTime = 0;
         }
 
+        function checkWarmUp() {
+            const elapsed = Date.now() - systemStartTime;
+            if (elapsed < CONFIG.WARMUP_SECONDS * 1000) {
+                els.status.textContent = `Đang ổn định... (${Math.ceil(CONFIG.WARMUP_SECONDS - elapsed/1000)}s)`;
+                els.dot.style.background = "#fbbf24"; 
+                earCounter = 0;
+                marCounter = 0;
+                handOffCounter = 0;
+                return true; 
+            }
+            return false; 
+        }
+
         function onFaceResults(results) {
             if (!isRunning) return; 
 
@@ -356,6 +372,8 @@
             const landmarks = results.multiFaceLandmarks[0];
 
             window.drawConnectors(els.ctx, landmarks, window.FACEMESH_TESSELATION, {color: '#3a3a3a40', lineWidth: 1});
+
+            if (checkWarmUp()) return;
 
             const leftEAR = calculateEAR(landmarks, LEFT_EYE);
             const rightEAR = calculateEAR(landmarks, RIGHT_EYE);
@@ -413,12 +431,17 @@
                     window.drawConnectors(els.ctx, landmarks, window.HANDS_CONNECTIONS, {color: '#10b981', lineWidth: 3});
                     window.drawLandmarks(els.ctx, landmarks, {color: '#ef4444', lineWidth: 1, radius: 3});
                 }
+                
+                if (checkWarmUp()) return;
+
                 handOffCounter = 0;
                 isHandAlerting = false;
                 els.alertHands.style.display = 'none';
                 els.status.textContent = "Tay trên vô lăng";
                 els.dot.style.background = "#10b981";
             } else {
+                if (checkWarmUp()) return;
+
                 handOffCounter++;
                 if (handOffCounter >= CONFIG.HAND_OFF_FRAMES) {
                     if (!isHandAlerting) {
@@ -435,13 +458,52 @@
         }
 
         async function setupAI() {
-            faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-            faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
-            faceMesh.onResults(onFaceResults);
+            if (!faceMesh) {
+                faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+                faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
+                faceMesh.onResults(onFaceResults);
+            }
 
-            hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            hands.setOptions({maxNumHands: 2, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
-            hands.onResults(onHandsResults);
+            if (!hands) {
+                hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+                hands.setOptions({maxNumHands: 2, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
+                hands.onResults(onHandsResults);
+            }
+
+            if (!camera) {
+                const video = els.video;
+                camera = new Camera(video, {
+                    onFrame: async () => {
+                        if (!isRunning) return;
+                        
+                        if (els.canvas.width === 0) {
+                            els.canvas.width = video.videoWidth;
+                            els.canvas.height = video.videoHeight;
+                        }
+
+                        els.ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
+                        
+                        if (els.canvas.width > 0) {
+                            els.canvas.width = video.videoWidth;
+                            els.canvas.height = video.videoHeight;
+                        }
+                        
+                        if(faceMesh) await faceMesh.send({image: video});
+                        if(hands) await hands.send({image: video});
+                        
+                        checkSOSStatus();
+
+                        frameCount++;
+                        const now = Date.now();
+                        if (now - lastFpsTime >= 1000) {
+                            els.fps.textContent = frameCount;
+                            frameCount = 0;
+                            lastFpsTime = now;
+                        }
+                    },
+                    width: 1280, height: 720
+                });
+            }
         }
 
         async function startSystem() {
@@ -452,6 +514,8 @@
                 els.soundSOS.play().then(() => els.soundSOS.pause()).catch(() => {});
                 
                 isRunning = true;
+                systemStartTime = Date.now(); 
+
                 document.getElementById('startBtn').disabled = true;
                 document.getElementById('stopBtn').disabled = false;
                 document.getElementById('loading').style.display = 'flex';
@@ -464,20 +528,9 @@
                 const handInput = document.getElementById('handFrameInput');
                 if(handInput) CONFIG.HAND_OFF_FRAMES = parseInt(handInput.value);
 
-                if (!faceMesh || !hands) await setupAI();
-                
-                camera = new Camera(els.video, {
-                    onFrame: async () => {
-                        await faceMesh.send({image: els.video});
-                        await hands.send({image: els.video});
-                        checkSOSStatus();
-                        updateFPS();
-                    },
-                    width: 1280,
-                    height: 720
-                });
-                
+                await setupAI();
                 await camera.start();
+
                 document.getElementById('loading').style.display = 'none';
 
             } catch (e) {
@@ -510,11 +563,13 @@
             handOffCounter = 0;
             yawnTotal = 0;
             alertTotal = 0;
+            frameCount = 0;
 
             document.getElementById('drowsyFramesCount').textContent = '0';
             document.getElementById('yawnCount').textContent = '0';
             document.getElementById('handOffFramesCount').textContent = '0';
             document.getElementById('totalAlerts').textContent = '0';
+            els.fps.textContent = '0';
             els.status.textContent = "Sẵn sàng";
             els.dot.style.background = "#10b981";
 
@@ -526,7 +581,7 @@
             dangerStartTime = null;
             isSOSActive = false;
             stopSOS();
-            
+
             isDrowsyAlerting = false;
             isYawnAlerting = false;
             isHandAlerting = false;
@@ -554,16 +609,6 @@
         document.getElementById('earThreshold').addEventListener('change', (e) => CONFIG.EAR_THRESHOLD = parseFloat(e.target.value));
         document.getElementById('marThreshold').addEventListener('change', (e) => CONFIG.MAR_THRESHOLD = parseFloat(e.target.value));
         document.getElementById('sosTimeoutInput').addEventListener('change', (e) => CONFIG.SOS_TIMEOUT_MS = parseInt(e.target.value) * 1000);
-
-        function updateFPS() {
-            frameCount++;
-            const now = Date.now();
-            if (now - lastFpsTime >= 1000) {
-                els.fps.textContent = frameCount;
-                frameCount = 0;
-                lastFpsTime = now;
-            }
-        }
 
     </script>
 </body>
