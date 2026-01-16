@@ -465,7 +465,7 @@
                 if(handInput) CONFIG.HAND_OFF_FRAMES = parseInt(handInput.value);
 
                 if (!faceMesh || !hands) await setupAI();
-
+                
             if (!camera) {
                 const video = els.video;
                 camera = new Camera(video, {
